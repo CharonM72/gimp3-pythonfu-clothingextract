@@ -23,9 +23,9 @@ This Python-Fu script for GIMP 3.0 automates the process of extracting clothing 
 - Two aligned images: one clothed and one unclothed.
 
 ## How to Use:
-1. Place the extract_clothing.py file (or clone the repo) into:
+1. Place the extract_clothing.py file (or clone the repo) into:  
 **Windows:**
-C:\Users\[yourname]\AppData\Roaming\GIMP\3.0\plug-ins\extract_clothing
+C:\Users\[yourname]\AppData\Roaming\GIMP\3.0\plug-ins\extract_clothing  
 **Unix-like:**
 ~/.config/GIMP/3.0/plug-ins/extract_clothing/
 
