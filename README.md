@@ -24,9 +24,9 @@ This Python-Fu script for GIMP 3.0 automates the process of extracting clothing 
 
 ## How to Use:
 1. Place the extract_clothing.py file (or clone the repo) into:  
-**Windows:**
+**Windows:**  
 C:\Users\[yourname]\AppData\Roaming\GIMP\3.0\plug-ins\extract_clothing  
-**Unix-like:**
+**Unix-like:**  
 ~/.config/GIMP/3.0/plug-ins/extract_clothing/
 
 2. In GIMP 3.x, load the clothed image as the top layer and the unclothed image as the bottom layer.
