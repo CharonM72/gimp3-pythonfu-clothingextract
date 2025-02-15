@@ -90,39 +90,6 @@ class ClothingExtractPlugin(Gimp.PlugIn):
             config.set_property("high-threshold", 1.0)
             threshold_proc.run(config)
 
-            Gimp.message(f"Visible layer name: {visible_layer.get_name()}")
-            Gimp.message(f"Visible layer is floating: {visible_layer.is_floating_sel()}")
-
-            # Create a new layer from the visible composite
-            blur_layer = Gimp.Layer.new_from_visible(image, image, "Blur Layer")
-            image.insert_layer(blur_layer, None, -1)  # Insert at the top
-            Gimp.message("Blur layer created and inserted.")
-
-            # Apply Gaussian Blur using plug_in_gauss
-            try:
-                Gimp.message("Applying Gaussian Blur...")
-            
-                # Apply Gaussian Blur
-                pdb.gegl__gaussian_blur(blur_layer, std_dev_x=5.0, std_dev_y=4.0, abyss_policy='clamp')
-
-                # Flush the display to update the UI
-                pdb.gimp_displays_flush()
-
-                Gimp.message("Gaussian Blur applied successfully.")
-            except Exception as e:
-                # Handle errors and ensure the undo group is closed
-                Gimp.message(f"Error applying Gaussian Blur: {str(e)}")
-                raise
-
-            # Apply threshold again to clean up the blurred image
-            config.set_property("drawable", blur_layer)
-            config.set_property("low-threshold", 0.5)  # Adjust as needed
-            threshold_proc.run(config)
-
-            # Merge the blurred layer back into the visible layer
-            pdb.gimp_image_merge_down(image, blur_layer, 0)  # Merge with the layer below
-            Gimp.message("Blur layer merged back.")
-
             # Copy visible and paste into mask
             Gimp.edit_copy_visible(image)
             paste_result = Gimp.edit_paste(mask, True)
