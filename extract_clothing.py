@@ -10,6 +10,7 @@ gi.require_version('Gimp', '3.0')
 gi.require_version('GimpUi', '3.0')
 gi.require_version('Gegl', '0.4')
 from gi.repository import Gimp, GimpUi, GObject, GLib, Gegl
+from pypdb import pdb
 
 def N_(message): return message
 def _(message): return GLib.dgettext(None, message)
@@ -38,7 +39,7 @@ class ClothingExtractPlugin(Gimp.PlugIn):
         )
         procedure.set_attribution("Charon", "GPL 3", "2025")
         return procedure
-
+    
     ## Main Logic ##
     def run(self, procedure, run_mode, image, drawable, args, data):
         try:
@@ -48,9 +49,20 @@ class ClothingExtractPlugin(Gimp.PlugIn):
             # Get layers (clothed should be top layer)
             layers = image.get_layers()
             if len(layers) < 2:
-                raise ValueError("Need exactly 2 layers (clothed top, unclothed bottom)")
+                raise ValueError("Need at least 2 layers (clothed top, unclothed bottom)")
             
-            clothed_layer = layers[0]
+            # Find the topmost visible layer (ignoring hidden layers)
+            clothed_layer = None
+            for layer in layers:
+                if layer.get_visible():  # Check if the layer is visible
+                    clothed_layer = layer
+                    break
+                    
+            if not clothed_layer:
+                raise ValueError("No visible layers found")
+
+            # Ensure only the topmost visible layer is selected
+            image.set_selected_layers([clothed_layer])
 
             # Set Difference mode
             clothed_layer.set_mode(Gimp.LayerMode.DIFFERENCE)
@@ -59,9 +71,15 @@ class ClothingExtractPlugin(Gimp.PlugIn):
             mask = clothed_layer.create_mask(Gimp.AddMaskType.WHITE)
             clothed_layer.add_mask(mask)
 
-            # Create visible composite layer
+            # Create visible composite layer and insert it above the top visible layer
             visible_layer = Gimp.Layer.new_from_visible(image, image, "Threshold Base")
-            image.insert_layer(visible_layer, None, -1)  # Insert at the bottom
+
+            # Insert the visible composite layer above the top visible layer
+            image.insert_layer(visible_layer, None, -1)  # Insert at the top of the layer stack
+
+            # Ensure the visible layer is part of the image
+            if not visible_layer.get_image():
+                raise RuntimeError("Visible layer was not added to the image")
 
             # Apply threshold
             threshold_proc = Gimp.get_pdb().lookup_procedure("gimp-drawable-threshold")
@@ -71,6 +89,39 @@ class ClothingExtractPlugin(Gimp.PlugIn):
             config.set_property("low-threshold", 0.03)  # Adjust as needed
             config.set_property("high-threshold", 1.0)
             threshold_proc.run(config)
+
+            Gimp.message(f"Visible layer name: {visible_layer.get_name()}")
+            Gimp.message(f"Visible layer is floating: {visible_layer.is_floating_sel()}")
+
+            # Create a new layer from the visible composite
+            blur_layer = Gimp.Layer.new_from_visible(image, image, "Blur Layer")
+            image.insert_layer(blur_layer, None, -1)  # Insert at the top
+            Gimp.message("Blur layer created and inserted.")
+
+            # Apply Gaussian Blur using plug_in_gauss
+            try:
+                Gimp.message("Applying Gaussian Blur...")
+            
+                # Apply Gaussian Blur
+                pdb.gegl__gaussian_blur(blur_layer, std_dev_x=5.0, std_dev_y=4.0, abyss_policy='clamp')
+
+                # Flush the display to update the UI
+                pdb.gimp_displays_flush()
+
+                Gimp.message("Gaussian Blur applied successfully.")
+            except Exception as e:
+                # Handle errors and ensure the undo group is closed
+                Gimp.message(f"Error applying Gaussian Blur: {str(e)}")
+                raise
+
+            # Apply threshold again to clean up the blurred image
+            config.set_property("drawable", blur_layer)
+            config.set_property("low-threshold", 0.5)  # Adjust as needed
+            threshold_proc.run(config)
+
+            # Merge the blurred layer back into the visible layer
+            pdb.gimp_image_merge_down(image, blur_layer, 0)  # Merge with the layer below
+            Gimp.message("Blur layer merged back.")
 
             # Copy visible and paste into mask
             Gimp.edit_copy_visible(image)
